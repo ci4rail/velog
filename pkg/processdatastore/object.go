@@ -1,7 +1,6 @@
 package processdatastore
 
 // Object is the interface for all objects that can be stored in the process data store
-
 type Object interface {
 	// Timestamp returns the reception timestamp of the object
 	Timestamp() int64
