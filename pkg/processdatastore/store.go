@@ -1,3 +1,8 @@
+// Package processdatastore is a package that provides a process data store.
+// The process data store is used to store process data objects associated with an address. For each address, only the most recent object is stored.
+// The number of updates for each address is also stored.
+// The typical use case is to call Write() from one goroutine and ReadAndClearEntry() from another goroutine, which periodically outputs the process data store.
+// The process data store is thread safe.
 package processdatastore
 
 import (
@@ -8,7 +13,7 @@ import (
 // StoreEntry is the process data store for a single address
 type StoreEntry struct {
 	RecentObject Object
-	NumUpdates   int
+	numUpdates   int
 }
 
 // Store is the process data store
@@ -34,20 +39,34 @@ func (s *Store) Write(o Object) {
 		e = &StoreEntry{}
 		s.entry[o.Address()] = e
 	}
-	e.NumUpdates++
+	e.numUpdates++
 	e.RecentObject = o
 }
 
-// ReadAndClearEntry reads the entry for the specified address from the process data store
-// After reading the entry, the entry is cleared
-func (s *Store) ReadAndClearEntry(address uint32) (*StoreEntry, error) {
+// Read reads the entry for the specified address from the process data store.
+// In addition, it returns the number of updates for the address since the last call to Read().
+// If the address has never got an update, an error is returned.
+func (s *Store) Read(address uint32) (Object, int, error) {
 	s.Lock()
 	defer s.Unlock()
 
 	e, ok := s.entry[address]
 	if !ok {
-		return nil, fmt.Errorf("no entries for address %d", address)
+		return nil, 0, fmt.Errorf("no entries for address %d", address)
 	}
-	delete(s.entry, address)
-	return e, nil
+	numUpdates := e.numUpdates
+	e.numUpdates = 0
+	return e.RecentObject, numUpdates, nil
+}
+
+// List returns a list of all addresses in the process data store which have received any updates since the store creation.
+func (s *Store) List() []uint32 {
+	s.Lock()
+	defer s.Unlock()
+
+	var list []uint32
+	for address := range s.entry {
+		list = append(list, address)
+	}
+	return list
 }
