@@ -48,7 +48,7 @@ func NewWriter(outPath string, outFilePrefix string) *Writer {
 
 // Write writes a single CSV record to w.
 // On error, the current file is closed and a subsequent write will go into a new file.
-// If file size limit is reached, and a FileSizeLimitReached error is returned.
+// If file size limit is reached, a FileSizeLimitReached error is returned.
 // If disk is full, a DiskFull error is returned.
 func (w *Writer) Write(record []string) error {
 	if w.writer == nil {
