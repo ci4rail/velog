@@ -1,6 +1,7 @@
 package mvb
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/rs/zerolog"
@@ -18,24 +19,26 @@ type Logger struct {
 	cfg       *configuration
 	outputDir string
 	logger    zerolog.Logger
+	ctx       context.Context
 }
 
 // NewFromViper creates a new MVB Unit from a viper configuration
-func NewFromViper(viperCfg *viper.Viper, outputDir string) (*Logger, error) {
+func NewFromViper(ctx context.Context, viperCfg *viper.Viper, outputDir string) (*Logger, error) {
 	cfg, err := readConfig(viperCfg)
 	if err != nil {
 		return nil, err
 	}
-	return New(cfg, outputDir), nil
+	return New(ctx, cfg, outputDir), nil
 }
 
 // New creates a new instance of MVB Unit
-func New(cfg *configuration, outputDir string) *Logger {
+func New(ctx context.Context, cfg *configuration, outputDir string) *Logger {
 
 	l := &Logger{
 		cfg:       cfg,
 		outputDir: outputDir,
 		logger:    log.With().Str("component", "MVB").Logger(),
+		ctx:       ctx,
 	}
 
 	l.logger.Info().Msg(fmt.Sprintf("config: %+v", cfg))

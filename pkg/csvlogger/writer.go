@@ -10,6 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 // FileSizeLimitReached is returned if the file size limit is reached
@@ -35,6 +38,7 @@ type Writer struct {
 	currentFile     *os.File
 	currentFileName string    // current file name with path
 	lastFlush       time.Time // last flush time
+	logger          zerolog.Logger
 }
 
 // NewWriter creates a new CSV logger.
@@ -43,6 +47,7 @@ func NewWriter(outPath string, outFilePrefix string) *Writer {
 		outPath:       outPath,
 		outFilePrefix: outFilePrefix,
 		Comma:         ',',
+		logger:        log.With().Str("component", "csvlogger").Logger(),
 	}
 }
 
@@ -82,9 +87,11 @@ func (w *Writer) handleWriteErrors(err error) error {
 
 	if errors.As(err, &pathError) {
 		if strings.Contains(pathError.Err.Error(), "file too large") {
+			w.logger.Info().Msgf("file too large %s", w.currentFileName)
 			return &FileSizeLimitReached{}
 		}
 		if strings.Contains(pathError.Err.Error(), "no space left on device") {
+			w.logger.Info().Msgf("disk full %s", w.currentFileName)
 			return &DiskFull{}
 		}
 	}
@@ -106,7 +113,7 @@ func (w *Writer) newCsvWriter() error {
 	}
 	w.currentFile = f
 	w.currentFileName = fileName
-	fmt.Printf("Created new file %s\n", fileName)
+	w.logger.Info().Msgf("created new file %s", fileName)
 	w.writer = csv.NewWriter(f)
 	w.writer.Comma = w.Comma
 	w.lastFlush = time.Now()

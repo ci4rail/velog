@@ -1,6 +1,8 @@
 package mvb
 
 import (
+	"strconv"
+
 	mvbpb "github.com/ci4rail/io4edge_api/mvbSniffer/go/mvbSniffer/v1"
 )
 
@@ -33,7 +35,7 @@ func (t *TelegramObject) Data() []byte {
 // AdditionalInfo returns additional information about the telegram
 func (t *TelegramObject) AdditionalInfo() []string {
 	strArr := []string{
-		mvbpb.Telegram_Type_name[int32(t.telegram.Type)],
+		strconv.Itoa(int(t.telegram.Type)),
 	}
 	return strArr
 }

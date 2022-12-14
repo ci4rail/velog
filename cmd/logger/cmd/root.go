@@ -18,7 +18,11 @@ package cmd
 
 import (
 	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/ci4rail/mvb-can-logger/cmd/logger/internal/ctx"
+	"github.com/ci4rail/mvb-can-logger/cmd/logger/internal/mvb"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -26,8 +30,7 @@ import (
 )
 
 type globalConfiguration struct {
-	NatsAddress string // nats address. If set, publish directly to nats. Otherwise, publish to dapr pubsub
-	NetworkName string // edgefarm network name, required for dapr pubsub
+	LoggerOutputDir string
 }
 
 var (
@@ -43,13 +46,36 @@ var rootCmd = &cobra.Command{
 }
 
 func run(cmd *cobra.Command, args []string) {
+	ctx, cancel, wg := ctx.NewWgContext()
+
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05.999Z07:00"})
 
 	err := viper.Unmarshal(&globalCfg)
 	if err != nil {
 		log.Fatal().Msgf("unmarshal global config %s", err)
 	}
-	select {}
+
+	var mvbLogger *mvb.Logger
+	mvbConfig := viper.Sub("mvb")
+	if mvbConfig != nil {
+		mvbLogger, err = mvb.NewFromViper(ctx, mvbConfig, globalCfg.LoggerOutputDir)
+		if err != nil {
+			log.Fatal().Msgf("mvbLogger: %s", err)
+		}
+	}
+
+	if mvbLogger != nil {
+		mvbLogger.Run()
+	}
+
+	// Wait for termination signal
+	cancelChan := make(chan os.Signal, 1)
+	signal.Notify(cancelChan, syscall.SIGTERM, syscall.SIGINT)
+	sig := <-cancelChan
+	log.Info().Msgf("Received signal %s", sig)
+	cancel()
+	wg.Wait()
+	log.Info().Msgf("Exit Program")
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

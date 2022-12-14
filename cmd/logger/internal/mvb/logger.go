@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ci4rail/io4edge-client-go/functionblock"
 	"github.com/ci4rail/io4edge-client-go/mvbsniffer"
 	mvbpb "github.com/ci4rail/io4edge_api/mvbSniffer/go/mvbSniffer/v1"
+	"github.com/ci4rail/mvb-can-logger/cmd/logger/internal/ctx"
 	"github.com/ci4rail/mvb-can-logger/pkg/csvlogger"
 	"github.com/ci4rail/mvb-can-logger/pkg/processdatastore"
 )
@@ -46,7 +46,19 @@ func (l *Logger) Run() error {
 
 	// go routine to read the stream and write it to the process data store
 	go func() {
+		wg, err := ctx.WgFromContext(l.ctx)
+		if err != nil {
+			l.logger.Error().Msg(err.Error())
+			return
+		}
+		defer wg.Done()
+
 		for {
+			select {
+			case <-l.ctx.Done():
+				return
+			default:
+			}
 			sd, err := c.ReadStream(time.Second * 1)
 			if err == nil {
 				telegramCollection := sd.FSData.GetEntry()
@@ -81,31 +93,49 @@ func (l *Logger) logTelegram(s *processdatastore.Store, telegram *mvbpb.Telegram
 
 func writeCsvHeader(csvLogger *csvlogger.Writer) {
 	csvLogger.Write([]string{
-		"Timestamp",
-		"Address",
-		"Data",
-		"AdditionalInfo",
+		"TimeSinceStart (us)",
+		"Address (dec)",
+		"Data (hex)",
+		"FCode (dec)",
+		"Updates (dec)",
+		time.Now().Format("2006-01-02 15:04:05"),
 	})
 }
 
-func writeCsvEntry(csvLogger *csvlogger.Writer, o processdatastore.Object) error {
+func writeCsvEntry(csvLogger *csvlogger.Writer, o processdatastore.Object, updates int) error {
 	return csvLogger.Write([]string{
 		fmt.Sprintf("%d", o.Timestamp()),
 		strconv.Itoa(int(o.Address())),
 		hex.EncodeToString(o.Data()),
-		strings.Join(o.AdditionalInfo(), ":"),
+		o.AdditionalInfo()[0],
+		strconv.Itoa(updates),
 	})
 }
 
 func (l *Logger) storeToCsv(s *processdatastore.Store, csvLogger *csvlogger.Writer) {
+	wg, err := ctx.WgFromContext(l.ctx)
+	if err != nil {
+		l.logger.Error().Msg(err.Error())
+		return
+	}
+	defer wg.Done()
+
 	for {
 		time.Sleep(time.Second * 1)
+
+		select {
+		case <-l.ctx.Done():
+			csvLogger.Close()
+			return
+		default:
+		}
+
 		addresses := s.List()
 		for _, address := range addresses {
 			o, updates, err := s.Read(address)
 			if err == nil {
 				if updates > 0 {
-					err := writeCsvEntry(csvLogger, o)
+					err := writeCsvEntry(csvLogger, o, updates)
 
 					var fileSizeLimitReached *csvlogger.FileSizeLimitReached
 					var diskFull *csvlogger.DiskFull
@@ -113,7 +143,7 @@ func (l *Logger) storeToCsv(s *processdatastore.Store, csvLogger *csvlogger.Writ
 					if errors.As(err, &fileSizeLimitReached) {
 						// a new file was created, write the header and the last entry again
 						writeCsvHeader(csvLogger)
-						err := writeCsvEntry(csvLogger, o)
+						err := writeCsvEntry(csvLogger, o, updates)
 
 						if err != nil {
 							l.logger.Error().Msgf("Error writing csv entry: %s", err)
