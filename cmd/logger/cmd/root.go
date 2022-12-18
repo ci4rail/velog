@@ -21,6 +21,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/ci4rail/mvb-can-logger/cmd/logger/internal/can"
 	"github.com/ci4rail/mvb-can-logger/cmd/logger/internal/ctx"
 	"github.com/ci4rail/mvb-can-logger/cmd/logger/internal/mvb"
 	"github.com/rs/zerolog"
@@ -55,6 +56,7 @@ func run(cmd *cobra.Command, args []string) {
 		log.Fatal().Msgf("unmarshal global config %s", err)
 	}
 
+	// configure loggers
 	var mvbLogger *mvb.Logger
 	mvbConfig := viper.Sub("mvb")
 	if mvbConfig != nil {
@@ -63,9 +65,21 @@ func run(cmd *cobra.Command, args []string) {
 			log.Fatal().Msgf("mvbLogger: %s", err)
 		}
 	}
+	var canLogger *can.Logger
+	canConfig := viper.Sub("can")
+	if canConfig != nil {
+		canLogger, err = can.NewFromViper(ctx, canConfig, globalCfg.LoggerOutputDir)
+		if err != nil {
+			log.Fatal().Msgf("canLogger: %s", err)
+		}
+	}
 
+	// start loggers
 	if mvbLogger != nil {
 		mvbLogger.Run()
+	}
+	if canLogger != nil {
+		canLogger.Run()
 	}
 
 	// Wait for termination signal

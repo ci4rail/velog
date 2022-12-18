@@ -7,6 +7,7 @@ package processdatastore
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -60,13 +61,16 @@ func (s *Store) Read(address uint32) (Object, int, error) {
 }
 
 // List returns a list of all addresses in the process data store which have received any updates since the store creation.
-func (s *Store) List() []uint32 {
+// The list is sorted in ascending order.
+func (s *Store) List() []int {
 	s.Lock()
 	defer s.Unlock()
 
-	var list []uint32
-	for address := range s.entry {
-		list = append(list, address)
+	keys := make([]int, 0, len(s.entry))
+	for k := range s.entry {
+		keys = append(keys, int(k))
 	}
-	return list
+	sort.Ints(keys)
+
+	return keys
 }

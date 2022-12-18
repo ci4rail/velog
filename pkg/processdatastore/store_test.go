@@ -71,12 +71,12 @@ func TestStore(t *testing.T) {
 	assert.Equal(t, 0, updates)
 
 	// list
-	s.Write(newMyObject(127, 457, []byte{2, 3, 7}))
-	s.Write(newMyObject(128, 458, []byte{2, 3, 8}))
+	s.Write(newMyObject(127, 458, []byte{2, 3, 7}))
+	s.Write(newMyObject(128, 457, []byte{2, 3, 8}))
 
 	list := s.List()
 	assert.Equal(t, 3, len(list))
-	assert.Equal(t, uint32(456), list[0])
-	assert.Equal(t, uint32(457), list[1])
-	assert.Equal(t, uint32(458), list[2])
+	assert.Equal(t, 456, list[0])
+	assert.Equal(t, 457, list[1])
+	assert.Equal(t, 458, list[2])
 }

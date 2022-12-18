@@ -59,7 +59,7 @@ func (l *Logger) Run() error {
 				return
 			default:
 			}
-			sd, err := c.ReadStream(time.Second * 1)
+			sd, err := c.ReadStream(time.Second * 2)
 			if err == nil {
 				telegramCollection := sd.FSData.GetEntry()
 
@@ -93,8 +93,8 @@ func (l *Logger) logTelegram(s *processdatastore.Store, telegram *mvbpb.Telegram
 
 func writeCsvHeader(csvLogger *csvlogger.Writer) {
 	csvLogger.Write([]string{
-		"TimeSinceStart (us)",
-		"Address (dec)",
+		"Address (hex)",
+		"Last Update - TimeSinceStart (us)",
 		"Data (hex)",
 		"FCode (dec)",
 		"Updates (dec)",
@@ -104,8 +104,8 @@ func writeCsvHeader(csvLogger *csvlogger.Writer) {
 
 func writeCsvEntry(csvLogger *csvlogger.Writer, o processdatastore.Object, updates int) error {
 	return csvLogger.Write([]string{
+		fmt.Sprintf("%x", o.Address()),
 		fmt.Sprintf("%d", o.Timestamp()),
-		strconv.Itoa(int(o.Address())),
 		hex.EncodeToString(o.Data()),
 		o.AdditionalInfo()[0],
 		strconv.Itoa(updates),
@@ -113,6 +113,8 @@ func writeCsvEntry(csvLogger *csvlogger.Writer, o processdatastore.Object, updat
 }
 
 func (l *Logger) storeToCsv(s *processdatastore.Store, csvLogger *csvlogger.Writer) {
+	defer csvLogger.Close()
+
 	wg, err := ctx.WgFromContext(l.ctx)
 	if err != nil {
 		l.logger.Error().Msg(err.Error())
@@ -125,14 +127,14 @@ func (l *Logger) storeToCsv(s *processdatastore.Store, csvLogger *csvlogger.Writ
 
 		select {
 		case <-l.ctx.Done():
-			csvLogger.Close()
 			return
 		default:
 		}
 
 		addresses := s.List()
+		nWritten := 0
 		for _, address := range addresses {
-			o, updates, err := s.Read(address)
+			o, updates, err := s.Read(uint32(address))
 			if err == nil {
 				if updates > 0 {
 					err := writeCsvEntry(csvLogger, o, updates)
@@ -147,15 +149,22 @@ func (l *Logger) storeToCsv(s *processdatastore.Store, csvLogger *csvlogger.Writ
 
 						if err != nil {
 							l.logger.Error().Msgf("Error writing csv entry: %s", err)
+						} else {
+							nWritten++
 						}
 					} else if errors.As(err, &diskFull) {
 						l.logger.Error().Msgf("Disk full when writing csv entry: %s. Stop recording", err)
 						return
 					} else if err != nil {
 						l.logger.Error().Msgf("Error writing csv entry: %s", err)
+					} else {
+						nWritten++
 					}
 				}
+			} else {
+				l.logger.Error().Msgf("Error reading process data store: %s", err)
 			}
 		}
+		l.logger.Info().Msgf("Wrote %d entries to csv file", nWritten)
 	}
 }
