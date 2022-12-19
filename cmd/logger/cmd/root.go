@@ -56,6 +56,12 @@ func run(cmd *cobra.Command, args []string) {
 		log.Fatal().Msgf("unmarshal global config %s", err)
 	}
 
+	// create logger output dir
+	err = os.MkdirAll(globalCfg.LoggerOutputDir, 0755)
+	if err != nil {
+		log.Fatal().Msgf("create logger output dir %s", err)
+	}
+
 	// configure loggers
 	var mvbLogger *mvb.Logger
 	mvbConfig := viper.Sub("mvb")

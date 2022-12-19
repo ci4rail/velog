@@ -25,6 +25,7 @@ type Logger struct {
 	outputDir string
 	logger    zerolog.Logger
 	ctx       context.Context
+	lineCount int
 }
 
 // NewFromViper creates a new CAN Unit from a viper configuration
@@ -44,6 +45,7 @@ func New(ctx context.Context, cfg *configuration, outputDir string) *Logger {
 		outputDir: outputDir,
 		logger:    log.With().Str("component", "CAN").Logger(),
 		ctx:       ctx,
+		lineCount: 0,
 	}
 
 	l.logger.Info().Msg(fmt.Sprintf("config: %+v", cfg))

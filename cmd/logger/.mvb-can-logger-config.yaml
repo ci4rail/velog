@@ -3,6 +3,7 @@ LoggerOutputDir: /mnt/recordings
 mvb:
   SnifferDevice: S101-IOU03-USB-EXT-1-mvbSniffer
   FileName: mvb
+  DumpInterval: 100
 can:
   SnifferDevice: S101-IOU03-USB-EXT-1-can
   FileName: can

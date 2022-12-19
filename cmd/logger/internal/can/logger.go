@@ -18,8 +18,7 @@ func (l *Logger) Run() error {
 
 	c, err := canl2.NewClientFromUniversalAddress(l.cfg.SnifferDevice, 0)
 	if err != nil {
-		l.logger.Error().Msgf("Error creating CAN sniffer client: %s", err)
-		return err
+		return fmt.Errorf("error creating can sniffer client: %s", err)
 	}
 
 	err = c.UploadConfiguration(
@@ -29,8 +28,7 @@ func (l *Logger) Run() error {
 		canl2.WithListenOnly(true),
 	)
 	if err != nil {
-		l.logger.Error().Msgf("Error uploading CAN sniffer configuration: %s", err)
-		return err
+		return fmt.Errorf("error uploading can sniffer configuration: %s", err)
 	}
 
 	// start stream
@@ -40,8 +38,7 @@ func (l *Logger) Run() error {
 		canl2.WithFBStreamOption(functionblock.WithBufferedSamples(100)),
 	)
 	if err != nil {
-		l.logger.Error().Msgf("Error starting CAN sniffer stream: %s", err)
-		return err
+		return fmt.Errorf("error starting can sniffer stream: %s", err)
 	}
 
 	csvLogger := csvlogger.NewWriter(l.outputDir, l.cfg.FileName)
@@ -66,7 +63,6 @@ func (l *Logger) Run() error {
 			default:
 			}
 			sd, err := c.ReadStream(time.Second * 2)
-			// l.logger.Info().Msgf("Read stream %v", err)
 
 			if err == nil {
 				samples := sd.FSData.Samples
@@ -96,7 +92,36 @@ func (l *Logger) Run() error {
 			}
 		}
 	}()
+	// go routine to log the number of lines written to the csv file
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			l.logger.Info().Msgf("Number of lines written to all csv files: %d", l.lineCount)
+		}
+	}()
+	return nil
+}
 
+func (l *Logger) Write(s *canpb.Sample, csvLogger *csvlogger.Writer) error {
+	err := l.writeCsvEntry(csvLogger, s)
+
+	var fileSizeLimitReached *csvlogger.FileSizeLimitReached
+	var diskFull *csvlogger.DiskFull
+
+	if errors.As(err, &fileSizeLimitReached) {
+		// a new file was created, write the header and the last entry again
+		writeCsvHeader(csvLogger)
+		err := l.writeCsvEntry(csvLogger, s)
+
+		if err != nil {
+			l.logger.Error().Msgf("Error writing csv entry: %s", err)
+		}
+	} else if errors.As(err, &diskFull) {
+		l.logger.Error().Msgf("Disk full when writing csv entry: %s. Stop recording", err)
+		return err
+	} else if err != nil {
+		l.logger.Error().Msgf("Error writing csv entry: %s", err)
+	}
 	return nil
 }
 
@@ -111,30 +136,7 @@ func writeCsvHeader(csvLogger *csvlogger.Writer) {
 	})
 }
 
-func (l *Logger) Write(s *canpb.Sample, csvLogger *csvlogger.Writer) error {
-	err := writeCsvEntry(csvLogger, s)
-
-	var fileSizeLimitReached *csvlogger.FileSizeLimitReached
-	var diskFull *csvlogger.DiskFull
-
-	if errors.As(err, &fileSizeLimitReached) {
-		// a new file was created, write the header and the last entry again
-		writeCsvHeader(csvLogger)
-		err := writeCsvEntry(csvLogger, s)
-
-		if err != nil {
-			l.logger.Error().Msgf("Error writing csv entry: %s", err)
-		}
-	} else if errors.As(err, &diskFull) {
-		l.logger.Error().Msgf("Disk full when writing csv entry: %s. Stop recording", err)
-		return err
-	} else if err != nil {
-		l.logger.Error().Msgf("Error writing csv entry: %s", err)
-	}
-	return nil
-}
-
-func writeCsvEntry(csvLogger *csvlogger.Writer, s *canpb.Sample) error {
+func (l *Logger) writeCsvEntry(csvLogger *csvlogger.Writer, s *canpb.Sample) error {
 	rtr := ""
 	if s.Frame.RemoteFrame {
 		rtr = "R"
@@ -143,11 +145,16 @@ func writeCsvEntry(csvLogger *csvlogger.Writer, s *canpb.Sample) error {
 	if s.Frame.ExtendedFrameFormat {
 		ext = "X"
 	}
-	return csvLogger.Write([]string{
+	err := csvLogger.Write([]string{
 		fmt.Sprintf("%d", s.Timestamp),
 		fmt.Sprintf("%x", s.Frame.MessageId),
 		hex.EncodeToString(s.Frame.Data),
 		ext,
 		rtr,
 	})
+	if err != nil {
+		return err
+	}
+	l.lineCount++
+	return nil
 }

@@ -12,6 +12,7 @@ import (
 type configuration struct {
 	SnifferDevice string // e.g. "S101-IOU03-USB-EXT-1-mvbSniffer"
 	FileName      string // prefix for log files e.g. "mvb"
+	DumpInterval  int    // how often to dump the store to csv file in ms
 }
 
 // Logger is the instance of the MVB logger
@@ -20,6 +21,7 @@ type Logger struct {
 	outputDir string
 	logger    zerolog.Logger
 	ctx       context.Context
+	lineCount int
 }
 
 // NewFromViper creates a new MVB Unit from a viper configuration
@@ -39,6 +41,7 @@ func New(ctx context.Context, cfg *configuration, outputDir string) *Logger {
 		outputDir: outputDir,
 		logger:    log.With().Str("component", "MVB").Logger(),
 		ctx:       ctx,
+		lineCount: 0,
 	}
 
 	l.logger.Info().Msg(fmt.Sprintf("config: %+v", cfg))

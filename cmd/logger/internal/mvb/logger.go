@@ -18,10 +18,13 @@ import (
 // Run starts the MVB logger
 func (l *Logger) Run() error {
 
+	if l.cfg.DumpInterval < 10 {
+		return fmt.Errorf("dump interval must be at least 10ms")
+	}
+
 	c, err := mvbsniffer.NewClientFromUniversalAddress(l.cfg.SnifferDevice, 0)
 	if err != nil {
-		l.logger.Error().Msgf("Error creating MVB sniffer client: %s", err)
-		return err
+		return fmt.Errorf("error creating mvb sniffer client: %s", err)
 	}
 	// start stream
 	err = c.StartStream(
@@ -36,8 +39,7 @@ func (l *Logger) Run() error {
 		mvbsniffer.WithFBStreamOption(functionblock.WithBufferedSamples(200)),
 	)
 	if err != nil {
-		l.logger.Error().Msgf("Error starting MVB sniffer stream: %s", err)
-		return err
+		return fmt.Errorf("error starting mvb sniffer stream: %s", err)
 	}
 
 	s := processdatastore.NewStore()
@@ -62,6 +64,7 @@ func (l *Logger) Run() error {
 			sd, err := c.ReadStream(time.Second * 2)
 			if err == nil {
 				telegramCollection := sd.FSData.GetEntry()
+				// l.logger.Info().Msgf("Read stream: %d", len(telegramCollection))
 
 				for _, telegram := range telegramCollection {
 
@@ -84,32 +87,19 @@ func (l *Logger) Run() error {
 	// write the process data store periodically to the csv file
 	go l.storeToCsv(s, csvLogger)
 
+	// go routine to log the number of lines written to the csv file
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			l.logger.Info().Msgf("Number of lines written to all csv files: %d", l.lineCount)
+		}
+	}()
+
 	return nil
 }
 
 func (l *Logger) logTelegram(s *processdatastore.Store, telegram *mvbpb.Telegram) {
 	s.Write(newTelegramObject(telegram))
-}
-
-func writeCsvHeader(csvLogger *csvlogger.Writer) {
-	csvLogger.Write([]string{
-		"Address (hex)",
-		"Last Update - TimeSinceStart (us)",
-		"Data (hex)",
-		"FCode (dec)",
-		"Updates (dec)",
-		time.Now().Format("2006-01-02 15:04:05"),
-	})
-}
-
-func writeCsvEntry(csvLogger *csvlogger.Writer, o processdatastore.Object, updates int) error {
-	return csvLogger.Write([]string{
-		fmt.Sprintf("%x", o.Address()),
-		fmt.Sprintf("%d", o.Timestamp()),
-		hex.EncodeToString(o.Data()),
-		o.AdditionalInfo()[0],
-		strconv.Itoa(updates),
-	})
 }
 
 func (l *Logger) storeToCsv(s *processdatastore.Store, csvLogger *csvlogger.Writer) {
@@ -123,7 +113,7 @@ func (l *Logger) storeToCsv(s *processdatastore.Store, csvLogger *csvlogger.Writ
 	defer wg.Done()
 
 	for {
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Duration(l.cfg.DumpInterval) * time.Millisecond)
 
 		select {
 		case <-l.ctx.Done():
@@ -131,40 +121,80 @@ func (l *Logger) storeToCsv(s *processdatastore.Store, csvLogger *csvlogger.Writ
 		default:
 		}
 
-		addresses := s.List()
-		nWritten := 0
-		for _, address := range addresses {
-			o, updates, err := s.Read(uint32(address))
-			if err == nil {
-				if updates > 0 {
-					err := writeCsvEntry(csvLogger, o, updates)
+		err := l.DumpStore(s, csvLogger, false, 0)
 
-					var fileSizeLimitReached *csvlogger.FileSizeLimitReached
-					var diskFull *csvlogger.DiskFull
+		var diskFull *csvlogger.DiskFull
+		if errors.As(err, &diskFull) {
+			l.logger.Error().Msgf("Disk full when writing csv entry: %s. Stop recording", err)
+			return
+		}
+	}
+}
 
-					if errors.As(err, &fileSizeLimitReached) {
-						// a new file was created, write the header and the last entry again
-						writeCsvHeader(csvLogger)
-						err := writeCsvEntry(csvLogger, o, updates)
+// DumpStore dumps the process data store to a csv file
+// If dumpAll is true, all entries are dumped, otherwise only the entries that have been updated since the last dump
+func (l *Logger) DumpStore(s *processdatastore.Store, csvLogger *csvlogger.Writer, dumpAll bool, recursionLevel int) error {
+	addresses := s.List()
+	nWritten := 0
+	for _, address := range addresses {
+		o, updates, err := s.Read(uint32(address))
+		if err == nil {
+			if dumpAll || (updates > 0) {
+				err := l.writeCsvEntry(csvLogger, o, updates)
 
-						if err != nil {
-							l.logger.Error().Msgf("Error writing csv entry: %s", err)
-						} else {
-							nWritten++
-						}
-					} else if errors.As(err, &diskFull) {
-						l.logger.Error().Msgf("Disk full when writing csv entry: %s. Stop recording", err)
-						return
-					} else if err != nil {
-						l.logger.Error().Msgf("Error writing csv entry: %s", err)
+				var fileSizeLimitReached *csvlogger.FileSizeLimitReached
+				var diskFull *csvlogger.DiskFull
+
+				if errors.As(err, &fileSizeLimitReached) {
+					if recursionLevel > 0 {
+						return fmt.Errorf("file size limit reached, but dumpStore was called recursively")
+					}
+					// a new file was created, write the header and dump the whole store
+					writeCsvHeader(csvLogger)
+					err := l.DumpStore(s, csvLogger, true, recursionLevel+1)
+
+					if err != nil {
+						l.logger.Error().Msgf("Error dumping store: %s", err)
 					} else {
 						nWritten++
 					}
+				} else if errors.As(err, &diskFull) {
+					return err
+				} else if err != nil {
+					l.logger.Error().Msgf("Error writing csv entry: %s", err)
+				} else {
+					nWritten++
 				}
-			} else {
-				l.logger.Error().Msgf("Error reading process data store: %s", err)
 			}
+		} else {
+			l.logger.Error().Msgf("Error reading process data store: %s", err)
 		}
-		l.logger.Info().Msgf("Wrote %d entries to csv file", nWritten)
 	}
+	return nil
+}
+
+func writeCsvHeader(csvLogger *csvlogger.Writer) {
+	csvLogger.Write([]string{
+		"Address (hex)",
+		"Last Update - TimeSinceStart (us)",
+		"Data (hex)",
+		"FCode (dec)",
+		"Updates (dec)",
+		time.Now().Format("2006-01-02 15:04:05"),
+	})
+}
+
+func (l *Logger) writeCsvEntry(csvLogger *csvlogger.Writer, o processdatastore.Object, updates int) error {
+	err := csvLogger.Write([]string{
+		fmt.Sprintf("%x", o.Address()),
+		fmt.Sprintf("%d", o.Timestamp()),
+		hex.EncodeToString(o.Data()),
+		o.AdditionalInfo()[0],
+		strconv.Itoa(updates),
+	})
+	if err != nil {
+		return err
+	}
+	l.lineCount++
+	return nil
 }
