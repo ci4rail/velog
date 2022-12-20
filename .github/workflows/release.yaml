@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: Build example
+      - name: Build binary
         uses: wangyoucao577/go-release-action@v1.22
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -27,3 +27,4 @@ jobs:
           goversion: "https://go.dev/dl/go1.18.3.linux-amd64.tar.gz"
           project_path: "cmd/${{ matrix.source_path }}"
           binary_name: velog_${{ matrix.source_path }}
+          extra_files: LICENSE
