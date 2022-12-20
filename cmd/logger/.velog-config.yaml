@@ -1,4 +1,3 @@
-#NatsAddress: "localhost:4222"
 LoggerOutputDir: /mnt/recordings
 mvb:
   SnifferDevice: S101-IOU03-USB-EXT-1-mvbSniffer
