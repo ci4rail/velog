@@ -1,4 +1,4 @@
-module github.com/ci4rail/mvb-can-logger
+module github.com/ci4rail/velog
 
 go 1.18
 

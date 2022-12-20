@@ -21,9 +21,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ci4rail/mvb-can-logger/cmd/logger/internal/can"
-	"github.com/ci4rail/mvb-can-logger/cmd/logger/internal/ctx"
-	"github.com/ci4rail/mvb-can-logger/cmd/logger/internal/mvb"
+	"github.com/ci4rail/velog/cmd/logger/internal/can"
+	"github.com/ci4rail/velog/cmd/logger/internal/ctx"
+	"github.com/ci4rail/velog/cmd/logger/internal/mvb"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -40,7 +40,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "mvb-can-logger",
+	Use:   "velog",
 	Short: "Logs MVB and CAN data to disk",
 	Long:  `Logs MVB and CAN data to disk`,
 	Run:   run,
@@ -108,7 +108,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", ".mvb-can-logger-config.yaml", "config file")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", ".velog-config.yaml", "config file")
 }
 
 // initConfig reads in config file and ENV variables if set.

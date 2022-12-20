@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/ci4rail/mvb-can-logger/pkg/csvlogger"
+	"github.com/ci4rail/velog/pkg/csvlogger"
 )
 
 func main() {

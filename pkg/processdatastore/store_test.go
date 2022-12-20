@@ -3,7 +3,7 @@ package processdatastore_test
 import (
 	"testing"
 
-	"github.com/ci4rail/mvb-can-logger/pkg/processdatastore"
+	"github.com/ci4rail/velog/pkg/processdatastore"
 
 	"github.com/stretchr/testify/assert"
 )

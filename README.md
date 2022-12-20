@@ -1,2 +1,4 @@
-# mvb-can-logger
-Application to record MVB and CAN Data on disk
+# velog
+Application to log vehicle data to disk.
+
+Currently, supports MVB and CAN.

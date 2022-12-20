@@ -13,7 +13,7 @@ limitations under the License.
 
 package main
 
-import "github.com/ci4rail/mvb-can-logger/cmd/logger/cmd"
+import "github.com/ci4rail/velog/cmd/logger/cmd"
 
 func main() {
 	cmd.Execute()

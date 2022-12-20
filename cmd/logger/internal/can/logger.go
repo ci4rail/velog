@@ -9,8 +9,8 @@ import (
 	"github.com/ci4rail/io4edge-client-go/canl2"
 	"github.com/ci4rail/io4edge-client-go/functionblock"
 	canpb "github.com/ci4rail/io4edge_api/canL2/go/canL2/v1alpha1"
-	"github.com/ci4rail/mvb-can-logger/cmd/logger/internal/ctx"
-	"github.com/ci4rail/mvb-can-logger/pkg/csvlogger"
+	"github.com/ci4rail/velog/cmd/logger/internal/ctx"
+	"github.com/ci4rail/velog/pkg/csvlogger"
 )
 
 // Run starts the CAN logger

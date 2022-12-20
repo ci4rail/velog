@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/ci4rail/mvb-can-logger/internal/version"
+	"github.com/ci4rail/velog/internal/version"
 	"github.com/spf13/cobra"
 )
 

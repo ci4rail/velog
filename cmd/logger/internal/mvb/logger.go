@@ -10,9 +10,9 @@ import (
 	"github.com/ci4rail/io4edge-client-go/functionblock"
 	"github.com/ci4rail/io4edge-client-go/mvbsniffer"
 	mvbpb "github.com/ci4rail/io4edge_api/mvbSniffer/go/mvbSniffer/v1"
-	"github.com/ci4rail/mvb-can-logger/cmd/logger/internal/ctx"
-	"github.com/ci4rail/mvb-can-logger/pkg/csvlogger"
-	"github.com/ci4rail/mvb-can-logger/pkg/processdatastore"
+	"github.com/ci4rail/velog/cmd/logger/internal/ctx"
+	"github.com/ci4rail/velog/pkg/csvlogger"
+	"github.com/ci4rail/velog/pkg/processdatastore"
 )
 
 // Run starts the MVB logger
