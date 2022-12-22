@@ -47,6 +47,7 @@ var rootCmd = &cobra.Command{
 }
 
 func run(cmd *cobra.Command, args []string) {
+	//csvlogger.SimulateFileSizeLimit = 15000
 	ctx, cancel, wg := ctx.NewWgContext()
 
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05.999Z07:00"})

@@ -59,13 +59,15 @@ func (l *Logger) Run() error {
 		for {
 			select {
 			case <-l.ctx.Done():
+				l.logger.Info().Msg("Stop logging CAN data")
 				return
 			default:
 			}
 			sd, err := c.ReadStream(time.Second * 2)
-
 			if err == nil {
 				samples := sd.FSData.Samples
+				//l.logger.Info().Msgf("Read CAN sniffer stream: %d", len(samples))
+
 				for _, sample := range samples {
 					if sample.IsDataFrame {
 						err := l.Write(sample, csvLogger)
@@ -80,7 +82,24 @@ func (l *Logger) Run() error {
 			} else {
 				l.logger.Warn().Msgf("Error reading CAN sniffer stream: %s", err)
 			}
+		}
+	}()
 
+	// go routine to log abnormal controller state to journal
+	go func() {
+		wg, err := ctx.WgFromContext(l.ctx)
+		if err != nil {
+			l.logger.Error().Msg(err.Error())
+			return
+		}
+		defer wg.Done()
+		for {
+			select {
+			case <-l.ctx.Done():
+				l.logger.Info().Msg("Stop logging CAN controller state")
+				return
+			default:
+			}
 			// check for abnormal controller state
 			state, err := c.GetCtrlState()
 			if err != nil {
@@ -90,9 +109,11 @@ func (l *Logger) Run() error {
 			if canpb.ControllerState(state) != canpb.ControllerState_CAN_OK {
 				l.logger.Warn().Msgf("CAN sniffer controller state: %s", canpb.ControllerState(state).Enum().String())
 			}
+			time.Sleep(2 * time.Second)
 		}
 	}()
-	// go routine to log the number of lines written to the csv file
+
+	// go routine to log the number of lines written to the csv file to journal
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)

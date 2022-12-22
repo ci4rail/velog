@@ -15,6 +15,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// SimulateFileSizeLimit can simulate a file too large error. Set it to a non-zero value to simulate a file size limit after n lines.
+var SimulateFileSizeLimit = 0
+
 // FileSizeLimitReached is returned if the file size limit is reached
 type FileSizeLimitReached struct{}
 
@@ -39,21 +42,25 @@ type Writer struct {
 	currentFileName string    // current file name with path
 	lastFlush       time.Time // last flush time
 	logger          zerolog.Logger
+	lineCount       int
 }
 
 // NewWriter creates a new CSV logger.
 func NewWriter(outPath string, outFilePrefix string) *Writer {
 	return &Writer{
-		outPath:       outPath,
-		outFilePrefix: outFilePrefix,
-		Comma:         ',',
-		logger:        log.With().Str("component", "csvlogger").Logger(),
+		Comma:           ',',
+		outPath:         outPath,
+		outFilePrefix:   outFilePrefix,
+		writer:          nil,
+		currentFile:     nil,
+		currentFileName: "",
+		lastFlush:       time.Time{},
+		logger:          log.With().Str("component", "csvlogger").Logger(),
 	}
 }
 
 // Write writes a single CSV record to w.
-// On error, the current file is closed and a subsequent write will go into a new file.
-// If file size limit is reached, a FileSizeLimitReached error is returned.
+// If file size limit is reached, a FileSizeLimitReached error is returned. The current file is closed and a subsequent write will go into a new file.
 // If disk is full, a DiskFull error is returned.
 func (w *Writer) Write(record []string) error {
 	if w.writer == nil {
@@ -66,6 +73,15 @@ func (w *Writer) Write(record []string) error {
 	if err != nil {
 		err = w.handleWriteErrors(err)
 		return fmt.Errorf("could not write record to file %s: %w", w.currentFileName, err)
+	}
+	w.lineCount++
+
+	// simulate a file size limit
+	if SimulateFileSizeLimit != 0 && w.lineCount > SimulateFileSizeLimit {
+		err = w.handleWriteErrors(&os.PathError{
+			Err: errors.New("file too large"),
+		})
+		return fmt.Errorf("simulated file size error %s: %w", w.currentFileName, err)
 	}
 
 	// check if its time to flush
@@ -83,15 +99,15 @@ func (w *Writer) Write(record []string) error {
 
 func (w *Writer) handleWriteErrors(err error) error {
 	var pathError *os.PathError
-	w.Close()
 
 	if errors.As(err, &pathError) {
 		if strings.Contains(pathError.Err.Error(), "file too large") {
-			w.logger.Info().Msgf("file too large %s", w.currentFileName)
+			w.Close()
+			w.logger.Warn().Msgf("file too large %s", w.currentFileName)
 			return &FileSizeLimitReached{}
 		}
 		if strings.Contains(pathError.Err.Error(), "no space left on device") {
-			w.logger.Info().Msgf("disk full %s", w.currentFileName)
+			w.logger.Warn().Msgf("disk full %s", w.currentFileName)
 			return &DiskFull{}
 		}
 	}
@@ -117,6 +133,7 @@ func (w *Writer) newCsvWriter() error {
 	w.writer = csv.NewWriter(f)
 	w.writer.Comma = w.Comma
 	w.lastFlush = time.Now()
+	w.lineCount = 0
 	return nil
 }
 

@@ -58,6 +58,7 @@ func (l *Logger) Run() error {
 		for {
 			select {
 			case <-l.ctx.Done():
+				l.logger.Info().Msg("Stop capture MVB data")
 				return
 			default:
 			}
@@ -117,11 +118,13 @@ func (l *Logger) storeToCsv(s *processdatastore.Store, csvLogger *csvlogger.Writ
 
 		select {
 		case <-l.ctx.Done():
+			l.logger.Info().Msg("Stop storing MVB data")
 			return
 		default:
 		}
 
 		err := l.DumpStore(s, csvLogger, false, 0)
+		l.dumpNumber++
 
 		var diskFull *csvlogger.DiskFull
 		if errors.As(err, &diskFull) {
@@ -135,7 +138,6 @@ func (l *Logger) storeToCsv(s *processdatastore.Store, csvLogger *csvlogger.Writ
 // If dumpAll is true, all entries are dumped, otherwise only the entries that have been updated since the last dump
 func (l *Logger) DumpStore(s *processdatastore.Store, csvLogger *csvlogger.Writer, dumpAll bool, recursionLevel int) error {
 	addresses := s.List()
-	nWritten := 0
 	for _, address := range addresses {
 		o, updates, err := s.Read(uint32(address))
 		if err == nil {
@@ -155,15 +157,12 @@ func (l *Logger) DumpStore(s *processdatastore.Store, csvLogger *csvlogger.Write
 
 					if err != nil {
 						l.logger.Error().Msgf("Error dumping store: %s", err)
-					} else {
-						nWritten++
 					}
+					return nil
 				} else if errors.As(err, &diskFull) {
 					return err
 				} else if err != nil {
 					l.logger.Error().Msgf("Error writing csv entry: %s", err)
-				} else {
-					nWritten++
 				}
 			}
 		} else {
@@ -175,6 +174,7 @@ func (l *Logger) DumpStore(s *processdatastore.Store, csvLogger *csvlogger.Write
 
 func writeCsvHeader(csvLogger *csvlogger.Writer) {
 	csvLogger.Write([]string{
+		"Dump #",
 		"Address (hex)",
 		"Last Update - TimeSinceStart (us)",
 		"Data (hex)",
@@ -186,6 +186,7 @@ func writeCsvHeader(csvLogger *csvlogger.Writer) {
 
 func (l *Logger) writeCsvEntry(csvLogger *csvlogger.Writer, o processdatastore.Object, updates int) error {
 	err := csvLogger.Write([]string{
+		strconv.Itoa(l.dumpNumber),
 		fmt.Sprintf("%x", o.Address()),
 		fmt.Sprintf("%d", o.Timestamp()),
 		hex.EncodeToString(o.Data()),
@@ -196,5 +197,6 @@ func (l *Logger) writeCsvEntry(csvLogger *csvlogger.Writer, o processdatastore.O
 		return err
 	}
 	l.lineCount++
+
 	return nil
 }
