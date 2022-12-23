@@ -48,6 +48,8 @@ func (l *Logger) Run() error {
 
 	// go routine to read the stream and write it to the process data store
 	go func() {
+		l.logger.Info().Msg("Start logging MVB data")
+
 		wg, err := ctx.WgFromContext(l.ctx)
 		if err != nil {
 			l.logger.Error().Msg(err.Error())
