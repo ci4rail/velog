@@ -1,7 +1,7 @@
 // Package processdatastore is a package that provides a process data store.
 // The process data store is used to store process data objects associated with an address. For each address, only the most recent object is stored.
 // The number of updates for each address is also stored.
-// The typical use case is to call Write() from one goroutine and ReadAndClearEntry() from another goroutine, which periodically outputs the process data store.
+// The typical use case is to call Write() from one goroutine and List()/Read() from another goroutine, which periodically outputs the process data store.
 // The process data store is thread safe.
 package processdatastore
 
