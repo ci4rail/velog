@@ -8,7 +8,7 @@ Currently, supports MVB and CAN using a Ci4Rail [IOU03](https://docs.ci4rail.com
 
 The velog application stores messages from the MVB and CAN bus in parallel into separate csv files. The csv files are stored in a configurable directory.
 
-The csv files names begin with by default with `mvb` and `can` followed by a number that is incremented for each new file. Different prefixes can be configured in the config file via the `FileName` property.
+The csv files names begin with `mvb` and `can` followed by a number that is incremented for each new file. Different prefixes can be configured in the config file via the `FileName` property.
 
 A new file is created when the current file reaches the maximum size, which is 4GB on a vfat filesystem. A new file is also created when the application is started, for example when the system is rebooted.
 
@@ -24,7 +24,7 @@ The format of the csv file is as follows (example):
 | Dump # | Address (hex) | Last Update - TimeSinceStart (us) | Data (hex) | FCode (dec) | Updates (dec) | 2022-12-27 20:32:31 |
 | ------ | ------------- | --------------------------------- | ---------- | ----------- | ------------- | ------------------- |
 | 0      | 6af           | 536534091409                      | 58585858   | 1           | 530           |
-| 0      | 6b0           | 536534091598                      | 59595959   | 1           | 530           |
+| 0      | 6b0           | 536534091598                      | 59595959   | 1           | 12            |
 
 Where
 * `Dump #` is the number of the dump
@@ -56,6 +56,10 @@ Where
 * `RTR` is `R` if the message is a remote transmission request, otherwise it is empty
 
 Also note the timestamp in the first row, which is the absolute time when the file was created.
+
+### Behavior when Disk is Full
+
+When the disk is full, the velog application will stop writing to the csv files.
 
 ## Building
 
