@@ -83,10 +83,16 @@ func run(cmd *cobra.Command, args []string) {
 
 	// start loggers
 	if mvbLogger != nil {
-		mvbLogger.Run()
+		err := mvbLogger.Run()
+		if err != nil {
+			log.Fatal().Msgf("mvbLogger run failed: %s", err)
+		}
 	}
 	if canLogger != nil {
-		canLogger.Run()
+		err := canLogger.Run()
+		if err != nil {
+			log.Fatal().Msgf("canLogger run failed: %s", err)
+		}
 	}
 
 	// Wait for termination signal
