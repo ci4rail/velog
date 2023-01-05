@@ -1,0 +1,13 @@
+LoggerOutputDir: /media/sdcard
+mvb:
+  SnifferDevice: S101-IOU03-USB-EXT-1-mvbSniffer
+  FileName: mvb
+  DumpInterval: 1000
+can:
+  SnifferDevice: S101-IOU03-USB-EXT-1-can
+  FileName: can
+  Bitrate: 500000
+  SJW: 3
+  SamplePoint: 0.8
+  AcceptanceMask: 0x00000000
+  AcceptanceCode: 0x00000000
