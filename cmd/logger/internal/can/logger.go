@@ -80,7 +80,8 @@ func (l *Logger) Run() error {
 					}
 				}
 			} else {
-				l.logger.Warn().Msgf("Error reading CAN sniffer stream: %s", err)
+				// firmware may be restarted... Let systemd restart the service
+				l.logger.Fatal().Msgf("Error reading CAN sniffer stream: %s", err)
 			}
 		}
 	}()
