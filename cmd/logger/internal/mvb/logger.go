@@ -82,7 +82,8 @@ func (l *Logger) Run() error {
 					l.logTelegram(s, telegram)
 				}
 			} else {
-				l.logger.Warn().Msgf("Error reading MVB sniffer stream: %s", err)
+				// firmware may be restarted... Let systemd restart the service
+				l.logger.Fatal().Msgf("Error reading MVB sniffer stream: %s", err)
 			}
 		}
 	}()
